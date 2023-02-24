@@ -2,11 +2,12 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn({
-    type: 'bigint',
-  })
+  @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
-  name: string;
+  username: string;
+
+  @Column()
+  password: string;
 }
