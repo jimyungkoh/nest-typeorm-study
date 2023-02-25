@@ -22,10 +22,6 @@ export class UsersService {
   public async findUser(id: number) {
     const user = await this.userRepository.findOneBy({ id });
 
-    if (!user) {
-      throw new NotFoundException('user not found');
-    }
-
     return new UserBasicInfoDto(user);
   }
 }
