@@ -18,7 +18,7 @@
 
 # 예외 필터가 필요한 이유
 
-![출처: **[What's the difference between Interceptor vs Middleware vs Filter in Nest.js?](https://stackoverflow.com/questions/54863655/whats-the-difference-between-interceptor-vs-middleware-vs-filter-in-nest-js)**](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/c7dda894-5338-46e2-9bae-f067967e2ade/Untitled.png)
+![NestJSPipeline](https://user-images.githubusercontent.com/30682847/221354231-28c782ea-1369-47c5-9dd2-88a1e975ffad.png)
 
 출처: **[What's the difference between Interceptor vs Middleware vs Filter in Nest.js?](https://stackoverflow.com/questions/54863655/whats-the-difference-between-interceptor-vs-middleware-vs-filter-in-nest-js)**
 
