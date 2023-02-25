@@ -1,2 +1,92 @@
-# Nest & TypeORM Study
-- 학습에 NestJS와 TypeORM이 사용되는 리포지토리입니다.
+![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
+
+# 시나리오
+
+유저 서비스가 있고 유저 컨트롤러가 있다고 가정합시다.
+
+1. 유저 컨트롤러에서 GET: /users/:id 를 통해 해당하는 id 값을 가진 user의 정보를 받아오는 요청을 보냅니다.
+2. 유저 서비스에서 컨트롤러의 userService.findUser(+id) 호출을 받고 해당하는 유저 id로 데이터베이스에서 해당 id를 가진 유저를 찾습니다.
+3. 만약 유저가
+    1. 있다면 찾은 유저 entity를 dto에 담아 반환합니다.
+    2. 없다면 컨트롤러 또는 서비스에서 NotFoundError를 throw합니다.
+
+우리가 주목해야 할 부분은 3-b 입니다.
+
+우선 기본적인 코드 구조는 아래와 같습니다.
+
+```typescript
+// users.controller.ts
+@Controller('users')
+export class UsersController {
+  constructor(private userService: UsersService) {}
+
+  @Get('/:id')
+  public findUser(@Param('id') id: string) {
+    return this.userService.findUser(+id);
+  }
+
+  ...
+}
+
+// users.service.ts
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
+
+	...
+
+  public async findUser(id: number) {
+    const user = await this.userRepository.findOneBy({ id });
+
+    return new ReadUserBasicDto(user);
+  }
+}
+
+// read-user.dto.ts
+export class ReadUserBasicDto {
+  id: number;
+  username: string;
+
+  constructor(user: User) {
+    this.id = user.id;
+    this.username = user.username;
+    Object.seal(this);
+  }
+}
+```
+
+# 전략 1
+아마 가장 간단하게 HTTP 예외를 throw할 수 있는 방법이 아닐까 싶습니다.
+
+user가 존재하지 않는다면 HTTP 404 예외를 throw하는 로직을 findUser 안에 집어넣기만 하면 됩니다!
+
+```typescript
+// users.service.ts
+@Injectable()
+export class UsersService {
+	...
+
+  public async findUser(id: number) {
+    const user = await this.userRepository.findOneBy({ id });
+
+		// 해당 id 값의 user가 존재하지 않는다면 
+		//  HTTP 404 Exception throw
+		if (!user) {
+      throw new NotFoundException('user not found');
+    }
+
+    return new ReadUserBasicDto(user);
+  }
+}
+```
+
+이 전략은 가장 단순하다는 장점이 있지만, 컨트롤러 계층에서 해야 할 일을 서비스 계층이 함으로써 컨트롤러가 서비스에 의존하고 서비스도 컨트롤러에 의존하는 이상한 관계가 형성됩니다.
+
+보통은 컨트롤러가 서비스에 의존하고 서비스는 리포지토리에 의존하는 단방향 관계가 형성돼야 각 레이어의 구현체가 변경되더라도 쉽게 구현체를 교체할 수 있는 구조가 되기 때문에 이상한 관계라고 표현했습니다.
+
+예를 들어 **<u>컨트롤러가 지금은 HTTP 프로토콜을 사용하고 있지만, 다른 프로토콜(gRPC, 웹소켓, MQTT, AMQP 등)을 사용하면 서비스에 작성된 HTTP 예외 처리 로직은 전부 수정해야 합니다.</u>**
+
+따라서, 전략 1은 결합도가 높은 예외 처리 방식이라고 할 수 있습니다.
