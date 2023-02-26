@@ -1,34 +1,89 @@
 ![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
 
-# 전략 1
-아마 가장 간단하게 HTTP 예외를 throw할 수 있는 방법이 아닐까 싶습니다.
+# 전략 2
 
-user가 존재하지 않는다면 HTTP 404 예외를 throw하는 로직을 findUser 안에 집어넣기만 하면 됩니다!
+두번째 전략은 SRP 원칙을 준수하고 결합도가 낮아진다는 장점이 있지만, 그 외 모든 것이 단점인 전략입니다.
+
+저 같으면 이 전략 쓸 바에는 전략 1을 쓰는 게 나아보이네요😂
+
+코드를 보면서 그 이유를 파악해봅시다.
+
+우선 서비스 로직에서는 user가 없을 경우 “user not found”라는 메시지와 함께 Error를 throw합니다.
 
 ```typescript
-// users.service.ts
+// src/users/users.service.ts
 @Injectable()
 export class UsersService {
-	...
-
+  ...
   public async findUser(id: number) {
     const user = await this.userRepository.findOneBy({ id });
 
-		// 해당 id 값의 user가 존재하지 않는다면 
-		//  HTTP 404 Exception throw
-		if (!user) {
-      throw new NotFoundException('user not found');
+    if (!user) {
+      throw new Error('user not found');
     }
 
-    return new ReadUserBasicDto(user);
+    return new UserBasicInfoDto(user);
   }
 }
 ```
 
-이 전략은 가장 단순하다는 장점이 있지만, 컨트롤러 계층에서 해야 할 일을 서비스 계층이 함으로써 컨트롤러가 서비스에 의존하고 서비스도 컨트롤러에 의존하는 이상한 관계가 형성됩니다.
+그 다음 서비스의 findUser를 호출한 컨트롤러는 에러 객체를 HTTP 예외로 변환해서 thow해야 ExceptionFilter가 제대로 처리됩니다. 에러 객체를 제대로 변환하지 않는다면 500 에러(사실상
+서버)가 터지니까요.
 
-보통은 컨트롤러가 서비스에 의존하고 서비스는 리포지토리에 의존하는 단방향 관계가 형성돼야 각 레이어의 구현체가 변경되더라도 쉽게 구현체를 교체할 수 있는 구조가 되기 때문에 이상한 관계라고 표현했습니다.
+아래 컨트롤러의 findUser는 에러(e)를 캐치해서 에러 메시지가 “user not found”인지 확인하고 맞다면 NotFoundException을 throw하고 있습니다.
 
-예를 들어 **<u>컨트롤러가 지금은 HTTP 프로토콜을 사용하고 있지만, 다른 프로토콜(gRPC, 웹소켓, MQTT, AMQP 등)을 사용하면 서비스에 작성된 HTTP 예외 처리 로직은 전부 수정해야 합니다.</u>**
+```typescript
+// src/users/users.controller.ts
+@Controller('users')
+export class UsersController {
+  ...
+  @Get('/:id')
+  public async findUser(@Param('id') id: string) {
+    try {
+      return await this.userService.findUser(+id);
+    } catch (e) {
+      if (e.message === 'user not found') {
+        throw new NotFoundException(e.message);
+      }
+    }
+  }
+  ...
+}
+```
 
-따라서, 전략 1은 결합도가 높은 예외 처리 방식이라고 할 수 있습니다.
+뭐가 문제인 걸까요?
+
+1. 우선, 에러 메시지<u>**(리터럴 문자열)를 매번 작성해 캐치하다 보면 한번쯤 실수할 수도 있지 않을까요?**</u>
+    1. 실수하면 런타임시 500 에러가 발생하고
+    2. 이런 캐치 방식이 여러 컨트롤러에서 분산된 상태로 반복적으로 사용된다면 잡기 어려운 에러가 됩니다.
+2. 두번째로, <u>**서비스 메서드가 throw할 수 있는 에러 수가 많아진다면 컨트롤러 메서드 내부도 if-else문으로 도배돼야 합니다.**</u> 아래처럼요. 이런 컨트롤러 메서드가 많아진다고 생각하면… 코드 중복도
+   많아지고 예외 핸들링이 굉장히 힘들어집니다.
+   ```typescript
+   // src/users/users.controller.ts
+   @Controller('users')
+   export class UsersController {
+     ...	
+      @Get('/:id')
+      public async findUser(@Param('id') id: string) {
+        try {
+          return await this.userService.findUser(+id);
+        } catch (e) {
+          if (e.message === 'user not found') {
+            throw new NotFoundException(e.message);
+          } /*
+          else if (e.message=== '다른 에러 메시지 1'){
+            throw new 다른예외1(e.message);
+          } else if (e.message=== '다른 에러 메시지 2'){
+            throw new 다른예외2(e.message);
+          } else if (e.message=== '다른 에러 메시지 3'){
+            throw new 다른예외3(e.message);
+          } else{
+            throw new 다른예외4(e.message);
+          */
+        }
+      }
+     ...
+   }
+   ```
+
+그렇다면 SRP 원칙을 지켜 결합도를 낮춘 아키텍처를 가져가면서도 전략 2의 단점을 보완할 수 있는 해결법은 뭘까요?
