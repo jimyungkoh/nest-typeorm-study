@@ -8,3 +8,5 @@
 [NestJS 커스텀 예외 필터를 이용한 효과적인 예외 핸들링 - 전략 2](https://github.com/jimyungkoh/nest-typeorm-study/tree/nestjs/effective-exception-handling/strategy2)
 
 [NestJS 커스텀 예외 필터를 이용한 효과적인 예외 핸들링 - 솔루션](https://github.com/jimyungkoh/nest-typeorm-study/tree/nestjs/effective-exception-handling/solution)
+
+[NestJS 커스텀 예외 필터를 이용한 효과적인 예외 핸들링 - 부록: Service에서 논리 로직 떼어내기](https://github.com/jimyungkoh/nest-typeorm-study/tree/nestjs/effective-exception-handling/appendix)
