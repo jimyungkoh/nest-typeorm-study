@@ -10,8 +10,7 @@
 - “만약 위 문제를 회피하려고 서비스 계층에서 Error 객체를 던지고 컨트롤러에서 Error를 HTTP 예외로 변환한다면 Error를 어떻게 식별하지?”
 - “어찌어찌해서 에러를 식별한다고 해도 서비스 레이어의 메서드에서 던질 수 있는 예외가 여러 개면 컨트롤러에서 try-catch 로직이 지저분하게 붙을텐데? 코드 중복은?”
 
-이런 고민을 따라가며 해결책을 찾기 위해 다양한 방법을 찾아보았고, 우연히 **[Spring Guide - Exception 전략](https://cheese10yun.github.io/spring-guide-exception/)** 글을 접해 작성자님의 글을 참고해 NestJS 방식으로 풀어 적용해보았습니다.
-
+이런 고민을 따라가며 해결책을 찾기 위해 다양한 방법을 찾아보았고, 우연히 **[Spring Guide - Exception 전략](https://cheese10yun.github.io/spring-guide-exception/)** 글에서 영감을 얻어 포스트를 작성하게 되었습니다.
 (이 글을 만난 건 정말 행운이었어요🍀)
 
 우선 예외 필터가 필요한 이유부터 알아보아요!
