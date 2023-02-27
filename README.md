@@ -41,14 +41,13 @@ export type ErrorCode = {
 // 아래에 에러코드 값 객체를 생성
 // Create an error code instance below.
 export const ENTITY_NOT_FOUND = new ErrorCodeVo(404, 'Entity Not Found');
-export const PERMISSION_DENIED = new ErrorCodeVo(403, 'Permission Denied');
 ```
 
 위에서 ErrorCodeVo 클래스를 export하면 타입 체킹도 될텐데 왜 그 타입을 굳이 ErrorCode로 따로 선언했는지 궁금하실 수 있습니다.
 
-그 이유는 **ErrorCodeVo 클래스의 생성자를 통해서 값 객체 인스턴스를 생성할 수 있는 범위를 error.code.ts 파일 범위 내로 한정**하고 싶었기 때문입니다.
+그 이유는 <u>**ErrorCodeVo 클래스의 생성자를 통해서 값 객체 인스턴스를 생성할 수 있는 범위를 error.code.ts 파일 범위 내로 한정**</u>하고 싶었기 때문입니다.
 
-이렇게 **범위를 한정하면 모든 에러 코드를 한 파일 내에서 관리할 수 있습니다.**
+이렇게 <u>**범위를 한정하면 모든 에러 코드를 한 파일 내에서 관리할 수 있습니다.**</u>
 
 같은 용도로 사용되는 에러 코드를
 
@@ -86,12 +85,6 @@ Error 클래스를 상속받은 ServiceException 클래스를 만들었습니다
 //  ServiceException 인스턴스 생성 메서드
 export const EntityNotFoundException = (message?: string) => {
   return new ServiceException(ENTITY_NOT_FOUND, message);
-};
-
-// PERMISSION_DENIED 값 객체를 가진
-//  ServiceException 인스턴스 생성 메서드
-export const PermissionDeniedException = (message?: string) => {
-  return new ServiceException(PERMISSION_DENIED, message);
 };
 
 export class ServiceException extends Error {
@@ -137,7 +130,7 @@ export class ServiceExceptionToHttpExceptionFilter implements ExceptionFilter {
 }
 ```
 
-다음은 전역 레벨에서의 필터 사용 선언입니다. [NestJS의 공식문서](https://docs.nestjs.com/exception-filters) 설명에 따르면 두 가지 방식(main.ts 사용선언과 APP_FILTER 토큰 값을 통한 클래스 주입 방식)으로 전역 레벨에서 필터 사용 선언을 적용할 수 있습니다.
+다음은 전역 레벨에서의 필터 사용 선언입니다. [NestJS의 공식문서](https://docs.nestjs.com/exception-filters) 설명에 따르면 두 가지 방식으로 전역 레벨에서 필터 사용을 적용할 수 있습니다.
 
 ```typescript
 // 방법 1: main.ts 글로벌 필터 사용선언
@@ -145,7 +138,7 @@ export class ServiceExceptionToHttpExceptionFilter implements ExceptionFilter {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   ...
-	// 전역 레벨에서 ServiceExceptionToHttpExceptionFilter 사용
+  // 전역 레벨에서 ServiceExceptionToHttpExceptionFilter 사용
   app.useGlobalFilters(new ServiceExceptionToHttpExceptionFilter());
   await app.listen(3000);
 }
