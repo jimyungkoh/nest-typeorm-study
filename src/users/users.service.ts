@@ -3,7 +3,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { ReadUserInfoDto } from './dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityNotFoundException } from '../common/exception';
+import { validateUser } from './users.manager';
 
 @Injectable()
 export class UsersService {
@@ -15,9 +15,7 @@ export class UsersService {
   public async findOneUser(id: number) {
     const user = await this.userRepository.findOneBy({ id });
 
-    if (!user) {
-      throw EntityNotFoundException(id + ' is not found');
-    }
+    validateUser(id, user);
 
     return new ReadUserInfoDto(user);
   }
