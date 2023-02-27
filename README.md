@@ -1,89 +1,204 @@
 ![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
 
-# 전략 2
+# 솔루션: 커스텀 예외 필터를 사용한 예외 핸들링
+우리가 만들 커스텀 예외 필터(ServiceExceptionToHttpExceptionFilter)는 아래와 같이 동작합니다.
 
-두번째 전략은 SRP 원칙을 준수하고 결합도가 낮아진다는 장점이 있지만, 그 외 모든 것이 단점인 전략입니다.
+1. Service에서 ServiceException을 컨트롤러로 throw한다.
+2. 컨트롤러에서 핸들링하지 못한 예외가 다시 throw된다.
+3. 예외 필터가 ServiceException 타입 예외를 catch한 후 HTTP 컨텍스트 에러로 변환해 응답한다.
 
-저 같으면 이 전략 쓸 바에는 전략 1을 쓰는 게 나아보이네요😂
+![exception-handling-diagram](https://user-images.githubusercontent.com/30682847/221560171-30260084-6b14-4572-bcf7-d997a581def4.jpg)
 
-코드를 보면서 그 이유를 파악해봅시다.
+다음은 ServiceException의 상속 다이어그램입니다. Error 객체를 상속받아야 예외를 던질 수 있기 때문에 상속받아 클래스를 만들었습니다.
 
-우선 서비스 로직에서는 user가 없을 경우 “user not found”라는 메시지와 함께 Error를 throw합니다.
+![exception-inheritence-diagram](https://user-images.githubusercontent.com/30682847/221560324-97fe3fcd-7245-45d6-b2ff-c4fc570c6650.jpg)
+## 단계 1: 에러 정보를 담은 에러 코드 만들기
+
+- ErroCodeVo 클래스를 만들고
+- ErrorCode로 ErrorCodeVo의 타입을 정의한 다음
+- 생성자를 사용해 에러코드 값 객체(VO) 인스턴스를 선언합니다.
+
+에러 코드는 서비스 레이어에서 던질 예외에 사용될 예정이니 프로토콜에 맞는 응답 코드와 적절한 디폴트 메시지를 작성해주시면 되겠습니다~!
 
 ```typescript
-// src/users/users.service.ts
-@Injectable()
-export class UsersService {
-  ...
-  public async findUser(id: number) {
-    const user = await this.userRepository.findOneBy({ id });
+// src/common/exception/error-code/error.code.ts
+class ErrorCodeVo {
+  readonly status;
+  readonly message;
 
-    if (!user) {
-      throw new Error('user not found');
+  constructor(status, message) {
+    this.status = status;
+    this.message = message;
+  }
+}
+
+export type ErrorCode = {
+  status: number;
+  message: string;
+};
+
+// 아래에 에러코드 값 객체를 생성
+// Create an error code instance below.
+export const ENTITY_NOT_FOUND = new ErrorCodeVo(404, 'Entity Not Found');
+export const PERMISSION_DENIED = new ErrorCodeVo(403, 'Permission Denied');
+```
+
+위에서 ErrorCodeVo 클래스를 export하면 타입 체킹도 될텐데 왜 타입을 굳이 ErrorCode로 따로 선언했는지 궁금하실 수 있습니다.
+
+그 이유는 **ErrorCodeVo 클래스의 생성자를 통해서 값 객체 인스턴스를 생성할 수 있는 범위를 error.code.ts 파일 범위 내로 한정**하고 싶었기 때문입니다.
+
+이렇게 **범위를 한정하면 모든 에러 코드를 한 파일 내에서 관리할 수 있습니다.**
+
+같은 용도로 사용되는 에러 코드를
+
+- 실수로 중복해서 다른 이름으로 정의하거나
+- 같은 이름으로 다른 디렉토리에서 정의하거나
+
+하는 등의 불상사를 막을 수 있다 이 말이죠~! 😎
+
+이제 error-code를 모듈화해서 내보낼 index 파일을 작성합니다.
+
+```typescript
+// src/common/exception/error-code/index.ts
+export * from './error.code';
+```
+
+## 단계 2: 예외 만들기
+
+### 서비스 예외 클래스 생성
+
+Error 클래스를 상속받은 ServiceException 클래스를 만들었습니다.
+
+이 ServiceException 클래스의 역할은
+
+- 커스텀 예외 필터의 대상
+- ServiceExeption 타입 인스턴스 생성 메서드가 사용하는 생성자 제공
+
+만약 인스턴스 생성 메서드가 아니라 하위 클래스(subClass) 형식으로 ServiceException을 상속받은 예외 클래스를 만들고 싶으시다면 클래스로 구현하시면 됩니다.
+
+```typescript
+// src/common/exception/service.exception.ts
+
+// ENTITY_NOT_FOUND 값 객체(status, default-message)를 가진
+//  ServiceException 인스턴스 생성 메서드
+export const EntityNotFoundException = (message?: string) => {
+  return new ServiceException(ENTITY_NOT_FOUND, message);
+};
+
+// PERMISSION_DENIED 값 객체를 가진
+//  ServiceException 인스턴스 생성 메서드
+export const PermissionDeniedException = (message?: string) => {
+  return new ServiceException(PERMISSION_DENIED, message);
+};
+
+export class ServiceException extends Error {
+  readonly errorCode: ErrorCode;
+
+  constructor(errorCode: ErrorCode, message?: string) {
+    if (!message) {
+      message = errorCode.message;
     }
 
-    return new UserBasicInfoDto(user);
+    super(message);
+
+    this.errorCode = errorCode;
   }
 }
 ```
 
-그 다음 서비스의 findUser를 호출한 컨트롤러는 에러 객체를 HTTP 예외로 변환해서 thow해야 ExceptionFilter가 제대로 처리됩니다. 에러 객체를 제대로 변환하지 않는다면 500 에러(사실상
-서버)가 터지니까요.
+## 단계 3: 예외 필터 생성과 사용 설정
 
-아래 컨트롤러의 findUser는 에러(e)를 캐치해서 에러 메시지가 “user not found”인지 확인하고 맞다면 NotFoundException을 throw하고 있습니다.
+이제 ServiceException을 캐치해서 원하는 프로토콜 컨텍스트의 에러로 변환해 응답시킬 커스텀 예외 필터를 만들어 봅시다.
+
+아래 커스텀 필터 클래스에서는 호스트를 HTTP 컨텍스트로 바꾸어 그에 맞게 응답함수를 실행하고 있습니다. 추가적인 작업을 원하신다면 catch 내부에 내부 로직을 더 작성하시면 됩니다😊
 
 ```typescript
+// src/common/exception-filter/index.ts
+export * from './service.exception.to.http.exception.filter';
+
+// src/common/exception-filter/service.exception.to.http.exception.filter.ts
+@Catch(ServiceException)
+export class ServiceExceptionToHttpExceptionFilter implements ExceptionFilter {
+  catch(exception: ServiceException, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<Response>();
+    const status = exception.errorCode.status;
+
+    response.status(status).json({
+      statusCode: status,
+      message: exception.message,
+      path: request.url,
+    });
+  }
+}
+```
+
+다음은 전역 레벨에서의 필터 사용 선언입니다. [NestJS의 공식문서](https://docs.nestjs.com/exception-filters) 설명에 따르면 두 가지 방식(main.ts 사용선언과 APP_FILTER 토큰 값에 클래스 주입 방식)으로 전역 레벨에서 필터 사용 선언을 적용할 수 있습니다.
+
+```typescript
+// 방법 1: main.ts 글로벌 필터 사용선언
+// src/main.ts
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  ...
+	// 전역 레벨에서 ServiceExceptionToHttpExceptionFilter 사용
+  app.useGlobalFilters(new ServiceExceptionToHttpExceptionFilter());
+  await app.listen(3000);
+}
+
+bootstrap();
+
+// 방법 2: APP_FILTER 토큰 값에 클래스 주입 방식
+// src/app.module.ts
+@Module({
+  imports: [UsersModule, DatabaseModule],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: ServiceExceptionToHttpExceptionFilter,
+    },
+  ],
+})
+export class AppModule {}
+```
+
+긴 여정의 끝이 보입니다. 이제 서비스에서 ServiceException을 던져봅시다✌️
+
+## 단계 4: 준비하시고~쏘세요(Ready and Throw)🏹
+
+에러 throw는 이제 굉장히 심플해졌습니다. Service에서는 ServiceException 타입의 인스턴스 생성 메서드를 던지기만 하면 됩니다.
+
+```typescript
+
 // src/users/users.controller.ts
 @Controller('users')
 export class UsersController {
-  ...
+	...
   @Get('/:id')
   public async findUser(@Param('id') id: string) {
-    try {
-      return await this.userService.findUser(+id);
-    } catch (e) {
-      if (e.message === 'user not found') {
-        throw new NotFoundException(e.message);
-      }
-    }
+    return await this.userService.findOneUser(+id);
   }
-  ...
+}
+
+// src/users/users.service.ts
+@Injectable()
+export class UsersService {
+	...
+	public async findOneUser(id: number) {
+	    const user = await this.userRepository.findOneBy({ id });
+	
+	    if (!user) {
+				// 메시지 미입력시 EntityNotFoundException의
+				//  에러 코드 디폴트 메시지 출력
+	      throw new EntityNotFoundException(id + ' is not found');
+	    }
+	
+	    return new ReadUserInfoDto(user);
+	}
 }
 ```
 
-뭐가 문제인 걸까요?
+이렇게 함으로써 컨트롤러와 서비스의 결합도를 낮추고 내부 코드를 간결하게 가져갈 수 있게 되었습니다.
 
-1. 우선, 에러 메시지<u>**(리터럴 문자열)를 매번 작성해 캐치하다 보면 한번쯤 실수할 수도 있지 않을까요?**</u>
-    1. 실수하면 런타임시 500 에러가 발생하고
-    2. 이런 캐치 방식이 여러 컨트롤러에서 분산된 상태로 반복적으로 사용된다면 잡기 어려운 에러가 됩니다.
-2. 두번째로, <u>**서비스 메서드가 throw할 수 있는 에러 수가 많아진다면 컨트롤러 메서드 내부도 if-else문으로 도배돼야 합니다.**</u> 아래처럼요. 이런 컨트롤러 메서드가 많아진다고 생각하면… 코드 중복도
-   많아지고 예외 핸들링이 굉장히 힘들어집니다.
-   ```typescript
-   // src/users/users.controller.ts
-   @Controller('users')
-   export class UsersController {
-     ...	
-      @Get('/:id')
-      public async findUser(@Param('id') id: string) {
-        try {
-          return await this.userService.findUser(+id);
-        } catch (e) {
-          if (e.message === 'user not found') {
-            throw new NotFoundException(e.message);
-          } /*
-          else if (e.message=== '다른 에러 메시지 1'){
-            throw new 다른예외1(e.message);
-          } else if (e.message=== '다른 에러 메시지 2'){
-            throw new 다른예외2(e.message);
-          } else if (e.message=== '다른 에러 메시지 3'){
-            throw new 다른예외3(e.message);
-          } else{
-            throw new 다른예외4(e.message);
-          */
-        }
-      }
-     ...
-   }
-   ```
-
-그렇다면 SRP 원칙을 지켜 결합도를 낮춘 아키텍처를 가져가면서도 전략 2의 단점을 보완할 수 있는 해결법은 뭘까요?
+긴 글 읽어주셔서 감사합니다 💙
