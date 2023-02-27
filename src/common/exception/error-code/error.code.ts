@@ -8,10 +8,7 @@ class ErrorCodeVo {
   }
 }
 
-export type ErrorCode = {
-  status: number;
-  message: string;
-};
+export type ErrorCode = ErrorCodeVo;
 
 // 아래에 에러코드 값 객체를 생성
 // Create an error code instance below.
