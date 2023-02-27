@@ -1,6 +1,6 @@
 import { User } from '../entities/user.entity';
 
-export class UserBasicInfoDto {
+export class ReadUserInfoDto {
   id: number;
   username: string;
 
