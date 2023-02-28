@@ -1,4 +1,4 @@
-![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
+![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221781417-091438ba-81b3-4dfd-885a-e7731f5af52e.png)
 
 # 전략 1
 아마 가장 간단하게 HTTP 예외를 던질 수 있는 방법이 아닐까 싶습니다.
