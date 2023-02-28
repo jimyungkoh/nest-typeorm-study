@@ -1,4 +1,4 @@
-![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
+![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221781417-091438ba-81b3-4dfd-885a-e7731f5af52e.png)
 
 # 전략 2
 두번째 전략은  SRP 원칙을 준수하고 결합도가 낮아진다는 장점이 있지만, 그 외 모든 것이 단점인 전략입니다.
