@@ -1,4 +1,4 @@
-![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221353096-a09cde54-6013-46eb-97dd-0c012b0701cf.png)
+![effective-exception-handling](https://user-images.githubusercontent.com/30682847/221781417-091438ba-81b3-4dfd-885a-e7731f5af52e.png)
 
 # 솔루션: 커스텀 예외 필터를 사용한 예외 핸들링
 우리가 만들 커스텀 예외 필터(ServiceExceptionToHttpExceptionFilter)는 아래와 같이 동작합니다.
